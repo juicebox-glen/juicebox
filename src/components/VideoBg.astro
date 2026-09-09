@@ -1,0 +1,22 @@
+---
+interface Props {
+  video: string;
+  img: string;
+  srcset?: string;
+  sizes?: string;
+  size?: "large" | "small";
+  class?: string;
+}
+const { video, img, srcset, sizes, size = "large", class: extraClass } = Astro.props;
+---
+
+<div class={extraClass ? `video-${size} ${extraClass}` : `video-${size}`}>
+  <div class="dropbox-video-embed w-embed">
+    <div style="width: 100%; height: 100%;" class="w-background-video w-background-video-atom">
+      <video class="lazy-video" playsinline loop muted preload="none" data-object-fit="cover">
+        <source data-src={video} />
+      </video>
+    </div>
+  </div>
+  <img src={img} loading="lazy" sizes={sizes} srcset={srcset} alt="" />
+</div>

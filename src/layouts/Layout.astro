@@ -1,0 +1,110 @@
+---
+interface Props {
+  title: string;
+  description?: string;
+  ogImage?: string;
+  facebookVerification?: string;
+}
+
+const {
+  title,
+  description = "Juicebox is a creative studio that delivers playful, purposeful brands to passionate people.",
+  ogImage = "https://uploads-ssl.webflow.com/658d74d5cbeb870d23abb1c0/65ca39b07406af66ca255994_juicebox.png",
+  facebookVerification,
+} = Astro.props;
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content={ogImage} />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImage} />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link href="/css/normalize.css" rel="stylesheet" type="text/css" />
+    <link href="/css/webflow.css" rel="stylesheet" type="text/css" />
+    <link href="/css/juicebox-913d95.webflow.css" rel="stylesheet" type="text/css" />
+    <link href="/favicon.png" rel="shortcut icon" type="image/x-icon" />
+    <link href="/webclip.png" rel="apple-touch-icon" />
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-H1WPG8FFDL"></script>
+    <script define:vars={{}} is:inline>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() { dataLayer.push(arguments); }
+      gtag('set', 'developer_id.dZGVlNj', true);
+      gtag('js', new Date());
+      gtag('config', 'G-H1WPG8FFDL');
+    </script>
+    {facebookVerification && <meta name="facebook-domain-verification" content={facebookVerification} />}
+  </head>
+  <body>
+    <slot />
+    <script is:inline>
+      document.querySelectorAll('.transition__link').forEach(function (link) {
+        link.addEventListener('click', function (e) {
+          e.preventDefault();
+          var goTo = this.getAttribute('href');
+          setTimeout(function () {
+            window.location = goTo;
+          }, 1000);
+        });
+      });
+
+      // The footer is sticky-positioned, so its natural document position
+      // isn't the bottom of the page — scroll all the way down instead.
+      document.querySelectorAll('[data-scroll-bottom]').forEach(function (link) {
+        link.addEventListener('click', function (e) {
+          e.preventDefault();
+          window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
+        });
+      });
+
+      // Hide the sticky hero once the footer is about to be reached, so it
+      // doesn't sit on top of (or peek above) the footer.
+      var footerTrigger = document.getElementById('footer-line');
+      var hero = document.querySelector('.hero');
+      if (footerTrigger && hero) {
+        var heroObserver = new IntersectionObserver(
+          function (entries) {
+            entries.forEach(function (entry) {
+              hero.classList.toggle('hero-hidden', entry.isIntersecting);
+            });
+          },
+          { threshold: 0, rootMargin: '0px 0px 400px 0px' }
+        );
+        heroObserver.observe(footerTrigger);
+      }
+
+      // Background videos: don't download/play until scrolled near view.
+      var lazyVideos = document.querySelectorAll('video.lazy-video');
+      if (lazyVideos.length) {
+        var videoObserver = new IntersectionObserver(
+          function (entries, observer) {
+            entries.forEach(function (entry) {
+              if (!entry.isIntersecting) return;
+              var video = entry.target;
+              var source = video.querySelector('source[data-src]');
+              if (source) {
+                source.src = source.dataset.src;
+                source.removeAttribute('data-src');
+                video.load();
+              }
+              video.play().catch(function () {});
+              observer.unobserve(video);
+            });
+          },
+          { rootMargin: '600px 0px' }
+        );
+        lazyVideos.forEach(function (video) {
+          videoObserver.observe(video);
+        });
+      }
+    </script>
+  </body>
+</html>

@@ -1,0 +1,26 @@
+---
+interface Props {
+  current?: "home" | "studio" | "other";
+}
+const { current = "other" } = Astro.props;
+
+const workHref = current === "home" ? "#work" : "/";
+const studioHref = current === "studio" ? "#" : "/studio";
+---
+
+<div id="Nav" data-animation="default" data-collapse="medium" data-duration="400" data-easing="ease" data-easing2="ease" role="banner" class="nav w-nav">
+  <div class="nav_links">
+    <a href={workHref} class="nav__link w-nav-link">WORK</a>
+    <a href={studioHref} class="nav__link transition__link w-nav-link">STUDIO</a>
+    <a href="#Footer" data-scroll-bottom="true" class="nav__link last w-nav-link">START A PROJECT</a>
+  </div>
+  {current === "home" ? (
+    <div class="nav_intro">
+      <div class="nav__text">
+        <p class="paragraph">Juicebox is a creative studio that delivers playful, purposeful brands to passionate people.</p>
+      </div>
+    </div>
+  ) : (
+    <div class="nav_intro"></div>
+  )}
+</div>
