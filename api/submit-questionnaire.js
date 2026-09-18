@@ -6,14 +6,15 @@
 // Get a key at https://resend.com/api-keys — the free tier is plenty
 // for this volume.
 //
-// By default this sends "from" Resend's shared sandbox address, which
-// works immediately with no setup. Once studio-juicebox.com is a
-// verified sending domain in Resend (Domains → Add Domain), swap the
-// FROM_ADDRESS below for something like
-// "Juicebox <questionnaire@studio-juicebox.com>".
+// This sends "from" Resend's shared sandbox address, which works
+// immediately with no setup, but sandbox mode only allows delivery to
+// the Resend account's own signup email — hence TO_ADDRESS below.
+// Once studio-juicebox.com is a verified sending domain in Resend
+// (Domains → Add Domain), FROM_ADDRESS can move to that domain and
+// TO_ADDRESS can go back to hello@studio-juicebox.com.
 
 const FROM_ADDRESS = "Juicebox Questionnaire <onboarding@resend.dev>";
-const TO_ADDRESS = "hello@studio-juicebox.com";
+const TO_ADDRESS = "glen@studio-juicebox.com";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
