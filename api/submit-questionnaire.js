@@ -58,7 +58,9 @@ export default async function handler(req, res) {
     if (!resendRes.ok) {
       const errText = await resendRes.text();
       console.error("Resend error:", resendRes.status, errText);
-      res.status(502).json({ error: "Failed to send email" });
+      // TEMP: surfacing the real Resend error to diagnose a delivery
+      // failure. Remove the `detail` field once this is working.
+      res.status(502).json({ error: "Failed to send email", detail: errText, status: resendRes.status });
       return;
     }
 
