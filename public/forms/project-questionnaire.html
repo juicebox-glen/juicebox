@@ -1,0 +1,576 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Project Questionnaire — Juicebox</title>
+<style>
+  /* ============================================================
+     JUICEBOX PROJECT QUESTIONNAIRE
+     Single HTML file, vanilla JS. Submissions post to the
+     /api/submit-questionnaire Vercel serverless function, which
+     emails them via Resend.
+
+     TO REUSE FOR A NEW PROJECT:
+     1. Duplicate this file.
+     2. Edit the CONFIG object near the top of the <script> block:
+        - projectName
+        - questions (label + type per question)
+     Nothing else needs to change.
+     ============================================================ */
+
+  :root {
+    --black: #222224;
+    --purple: #b9b8df;
+    --grey: #babbb4;
+    --bolt: #cff77f;
+    --light: #fbf9f2;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    background: var(--light);
+    color: var(--black);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+
+  /* Progress bar */
+  .progress-track {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background: rgba(34, 34, 36, 0.08);
+    z-index: 10;
+  }
+
+  .progress-fill {
+    height: 100%;
+    width: 0%;
+    background: var(--black);
+    transition: width 0.4s ease;
+  }
+
+  .brand {
+    position: fixed;
+    top: 28px;
+    left: 32px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    font-size: 14px;
+    text-transform: uppercase;
+    color: var(--black);
+    z-index: 10;
+  }
+
+  .step-counter {
+    position: fixed;
+    top: 28px;
+    right: 32px;
+    font-size: 13px;
+    color: rgba(34, 34, 36, 0.5);
+    z-index: 10;
+    font-variant-numeric: tabular-nums;
+  }
+
+  main {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 120px 32px 140px;
+  }
+
+  .screen {
+    width: 100%;
+    max-width: 640px;
+    opacity: 0;
+    transform: translateY(12px);
+    transition: opacity 0.35s ease, transform 0.35s ease;
+    display: none;
+  }
+
+  .screen.active {
+    display: block;
+  }
+
+  .screen.enter {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .question-label {
+    font-size: clamp(24px, 4vw, 34px);
+    font-weight: 700;
+    line-height: 1.25;
+    margin: 0 0 32px;
+    letter-spacing: -0.01em;
+  }
+
+  textarea,
+  input[type="text"] {
+    width: 100%;
+    font-family: inherit;
+    font-size: 18px;
+    color: var(--black);
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid rgba(34, 34, 36, 0.15);
+    padding: 10px 2px;
+    outline: none;
+    transition: border-color 0.2s ease;
+  }
+
+  textarea:focus,
+  input[type="text"]:focus {
+    border-bottom-color: var(--black);
+  }
+
+  textarea {
+    resize: vertical;
+    min-height: 140px;
+    line-height: 1.5;
+  }
+
+  .bullet-field {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+
+  .bullet-field .bullet-index {
+    font-size: 14px;
+    color: var(--grey);
+    font-weight: 700;
+    width: 18px;
+    flex-shrink: 0;
+  }
+
+  .bullet-field input {
+    margin: 0;
+  }
+
+  /* Navigation */
+  .nav-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 24px 32px;
+    background: linear-gradient(to top, var(--light) 60%, rgba(251, 249, 242, 0));
+    z-index: 10;
+  }
+
+  .nav-buttons {
+    display: flex;
+    gap: 12px;
+    margin-left: auto;
+  }
+
+  button {
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 700;
+    border: none;
+    border-radius: 100px;
+    padding: 14px 28px;
+    cursor: pointer;
+    transition: transform 0.15s ease, background 0.15s ease, opacity 0.15s ease;
+  }
+
+  button:active {
+    transform: scale(0.97);
+  }
+
+  .btn-primary {
+    background: var(--black);
+    color: var(--light);
+  }
+
+  .btn-primary:hover {
+    background: #000;
+  }
+
+  .btn-secondary {
+    background: transparent;
+    color: var(--black);
+    opacity: 0.55;
+  }
+
+  .btn-secondary:hover {
+    opacity: 1;
+  }
+
+  .btn-secondary:disabled {
+    opacity: 0.2;
+    cursor: default;
+  }
+
+  .btn-secondary:disabled:hover {
+    opacity: 0.2;
+  }
+
+  .hint {
+    font-size: 13px;
+    color: rgba(34, 34, 36, 0.45);
+    margin-top: 10px;
+  }
+
+  .error-message {
+    color: #b0432e;
+    font-size: 14px;
+    margin-top: 16px;
+    display: none;
+  }
+
+  .error-message.show {
+    display: block;
+  }
+
+  /* Thank-you screen */
+  .thankyou {
+    text-align: center;
+  }
+
+  .thankyou-logo {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    background: var(--bolt);
+    display: inline-block;
+    padding: 6px 14px;
+    border-radius: 6px;
+    margin-bottom: 28px;
+  }
+
+  .thankyou h1 {
+    font-size: clamp(28px, 5vw, 42px);
+    margin: 0 0 16px;
+    letter-spacing: -0.01em;
+  }
+
+  .thankyou p {
+    font-size: 16px;
+    color: rgba(34, 34, 36, 0.6);
+    max-width: 420px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+
+  @media (max-width: 640px) {
+    .brand { top: 20px; left: 20px; }
+    .step-counter { top: 20px; right: 20px; }
+    main { padding: 90px 20px 120px; }
+    .nav-bar { padding: 20px; }
+  }
+</style>
+</head>
+<body>
+
+  <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+  <div class="brand">Juicebox</div>
+  <div class="step-counter" id="stepCounter"></div>
+
+  <main>
+    <div id="questionsRoot"></div>
+
+    <div class="screen" id="thankyouScreen">
+      <div class="thankyou">
+        <div class="thankyou-logo">Juicebox</div>
+        <h1>Thank you.</h1>
+        <p>Your answers have been sent through. We'll be in touch shortly.</p>
+      </div>
+    </div>
+  </main>
+
+  <div class="nav-bar" id="navBar">
+    <button class="btn-secondary" id="backBtn" type="button">Back</button>
+    <div class="nav-buttons">
+      <button class="btn-primary" id="nextBtn" type="button">Next</button>
+    </div>
+  </div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ============================================================
+     CONFIG — edit this per project, nothing else needs to change
+     ============================================================ */
+  var CONFIG = {
+    projectName: "New Project",
+
+    // Vercel serverless function that emails the answers via Resend.
+    // See /api/submit-questionnaire.js — no per-project changes needed
+    // here unless the API route itself moves.
+    submitEndpoint: "/api/submit-questionnaire",
+
+    // type: "text"    -> single open-ended textarea
+    // type: "bullets" -> 3 separate single-line inputs for listing items
+    questions: [
+      { id: "q1", label: "Question 1", type: "text" },
+      { id: "q2", label: "Question 2", type: "text" },
+      { id: "q3", label: "Question 3", type: "bullets" },
+      { id: "q4", label: "Question 4", type: "text" },
+      { id: "q5", label: "Question 5", type: "text" },
+      { id: "q6", label: "Question 6", type: "bullets" },
+      { id: "q7", label: "Question 7", type: "text" },
+      { id: "q8", label: "Question 8", type: "text" },
+      { id: "q9", label: "Question 9", type: "bullets" },
+      { id: "q10", label: "Question 10", type: "text" }
+    ]
+  };
+
+  /* ============================================================
+     State
+     ============================================================ */
+  var STORAGE_KEY = "juicebox_form_" + slugify(CONFIG.projectName);
+  var total = CONFIG.questions.length;
+  var current = 0;
+  var answers = loadAnswers();
+
+  var root = document.getElementById("questionsRoot");
+  var progressFill = document.getElementById("progressFill");
+  var stepCounter = document.getElementById("stepCounter");
+  var navBar = document.getElementById("navBar");
+  var backBtn = document.getElementById("backBtn");
+  var nextBtn = document.getElementById("nextBtn");
+  var thankyouScreen = document.getElementById("thankyouScreen");
+
+  function slugify(str) {
+    return String(str).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "default";
+  }
+
+  function loadAnswers() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch (e) {
+      return {};
+    }
+  }
+
+  function saveAnswers() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(answers));
+    } catch (e) {
+      /* localStorage unavailable — non-fatal, submission still works */
+    }
+  }
+
+  function clearAnswers() {
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch (e) {}
+  }
+
+  /* ============================================================
+     Rendering
+     ============================================================ */
+  function buildScreens() {
+    CONFIG.questions.forEach(function (q, index) {
+      var screen = document.createElement("div");
+      screen.className = "screen";
+      screen.id = "screen-" + index;
+
+      var label = document.createElement("h2");
+      label.className = "question-label";
+      label.textContent = q.label;
+      screen.appendChild(label);
+
+      if (q.type === "bullets") {
+        var stored = answers[q.id] || ["", "", ""];
+        for (var i = 0; i < 3; i++) {
+          var field = document.createElement("div");
+          field.className = "bullet-field";
+
+          var idx = document.createElement("div");
+          idx.className = "bullet-index";
+          idx.textContent = (i + 1) + ".";
+
+          var input = document.createElement("input");
+          input.type = "text";
+          input.value = stored[i] || "";
+          input.setAttribute("data-bullet-index", i);
+          input.setAttribute("data-question-id", q.id);
+          input.addEventListener("input", onBulletInput);
+          input.addEventListener("keydown", function (e) {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              var next = this.closest(".bullet-field").nextElementSibling;
+              if (next) {
+                next.querySelector("input").focus();
+              } else {
+                nextBtn.click();
+              }
+            }
+          });
+
+          field.appendChild(idx);
+          field.appendChild(input);
+          screen.appendChild(field);
+        }
+        var hint = document.createElement("div");
+        hint.className = "hint";
+        hint.textContent = "List up to three.";
+        screen.appendChild(hint);
+      } else {
+        var textarea = document.createElement("textarea");
+        textarea.setAttribute("data-question-id", q.id);
+        textarea.value = answers[q.id] || "";
+        textarea.placeholder = "Type your answer…";
+        textarea.addEventListener("input", onTextInput);
+        screen.appendChild(textarea);
+      }
+
+      root.appendChild(screen);
+    });
+  }
+
+  function onBulletInput(e) {
+    var qid = e.target.getAttribute("data-question-id");
+    var idx = Number(e.target.getAttribute("data-bullet-index"));
+    if (!Array.isArray(answers[qid])) answers[qid] = ["", "", ""];
+    answers[qid][idx] = e.target.value;
+    saveAnswers();
+  }
+
+  function onTextInput(e) {
+    var qid = e.target.getAttribute("data-question-id");
+    answers[qid] = e.target.value;
+    saveAnswers();
+  }
+
+  function showScreen(index) {
+    var screens = document.querySelectorAll(".screen");
+    screens.forEach(function (s) { s.classList.remove("active", "enter"); });
+
+    var target = document.getElementById("screen-" + index);
+    if (target) {
+      target.classList.add("active");
+      requestAnimationFrame(function () {
+        target.classList.add("enter");
+      });
+      var firstField = target.querySelector("textarea, input");
+      if (firstField) setTimeout(function () { firstField.focus(); }, 200);
+    }
+
+    progressFill.style.width = (index / total) * 100 + "%";
+    stepCounter.textContent = (index + 1) + " / " + total;
+    backBtn.disabled = index === 0;
+    nextBtn.textContent = index === total - 1 ? "Submit" : "Next";
+  }
+
+  function showThankYou() {
+    document.querySelectorAll(".screen").forEach(function (s) {
+      s.classList.remove("active", "enter");
+    });
+    thankyouScreen.classList.add("active");
+    requestAnimationFrame(function () {
+      thankyouScreen.classList.add("enter");
+    });
+    navBar.style.display = "none";
+    progressFill.style.width = "100%";
+    stepCounter.textContent = "";
+  }
+
+  /* ============================================================
+     Navigation
+     ============================================================ */
+  function goNext() {
+    if (current < total - 1) {
+      current++;
+      showScreen(current);
+    } else {
+      submitForm();
+    }
+  }
+
+  function goBack() {
+    if (current > 0) {
+      current--;
+      showScreen(current);
+    }
+  }
+
+  backBtn.addEventListener("click", goBack);
+  nextBtn.addEventListener("click", goNext);
+
+  /* ============================================================
+     Submission
+     ============================================================ */
+  function submitForm() {
+    nextBtn.disabled = true;
+    nextBtn.textContent = "Sending…";
+    removeError();
+
+    var payload = { _subject: "New submission: " + CONFIG.projectName };
+    CONFIG.questions.forEach(function (q) {
+      if (q.type === "bullets") {
+        var vals = answers[q.id] || [];
+        payload[q.label] = vals.filter(Boolean).join(", ");
+      } else {
+        payload[q.label] = answers[q.id] || "";
+      }
+    });
+
+    fetch(CONFIG.submitEndpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Accept": "application/json" },
+      body: JSON.stringify(payload)
+    })
+      .then(function (res) {
+        if (res.ok) {
+          clearAnswers();
+          showThankYou();
+        } else {
+          throw new Error("Submission failed");
+        }
+      })
+      .catch(function () {
+        showError("Something went wrong sending your answers. Please try again.");
+        nextBtn.disabled = false;
+        nextBtn.textContent = "Submit";
+      });
+  }
+
+  function showError(message) {
+    removeError();
+    var el = document.createElement("div");
+    el.className = "error-message show";
+    el.id = "formError";
+    el.textContent = message;
+    document.getElementById("screen-" + current).appendChild(el);
+  }
+
+  function removeError() {
+    var existing = document.getElementById("formError");
+    if (existing) existing.remove();
+  }
+
+  /* ============================================================
+     Init
+     ============================================================ */
+  buildScreens();
+  showScreen(current);
+})();
+</script>
+
+</body>
+</html>
