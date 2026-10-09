@@ -9,9 +9,11 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "astro": "astro"
+    "astro": "astro",
+    "test": "node --test \"test/*.test.js\""
   },
   "dependencies": {
+    "@vercel/blob": "^2.8.1",
     "astro": "^7.3.2"
   },
   "allowScripts": {

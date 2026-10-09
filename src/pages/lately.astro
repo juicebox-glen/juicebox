@@ -1,0 +1,87 @@
+---
+// Unlisted: not linked from anywhere, marked noindex (meta tag here and an
+// X-Robots-Tag header in vercel.json), and there's no sitemap.
+// The tiles are loaded from /api/lately/tiles when the page opens.
+import Layout from "../layouts/Layout.astro";
+import Nav from "../components/Nav.astro";
+import Footer from "../components/Footer.astro";
+import "../styles/lately.css";
+---
+
+<Layout
+  title="Lately — Studio Juicebox"
+  description="What Juicebox is making at the moment."
+  noindex
+>
+  <Nav current="other" />
+
+  <header class="lately-head">
+    <div class="lately-toolbar" id="latelyToolbar" hidden>
+      <button type="button" class="lately-btn lately-btn--primary" id="latelyAdd">+ Upload</button>
+      <button type="button" class="lately-btn" id="latelyLock">Lock</button>
+      <span class="lately-status" id="latelyStatus" role="status" aria-live="polite"></span>
+    </div>
+    <h1 class="h1 lately-title">Lately</h1>
+    <p class="lately-hello" id="latelyHello">Loading&hellip;</p>
+  </header>
+
+  <section class="work lately">
+    <div class="lately-wrap">
+      <div class="lately-chips" id="latelyChips" role="toolbar" aria-label="Filter by project"></div>
+      <div class="lately-grid" id="latelyGrid"></div>
+      <p class="lately-empty" id="latelyEmpty" hidden></p>
+      <noscript><p class="lately-empty">This page needs JavaScript to show its tiles.</p></noscript>
+    </div>
+  </section>
+
+  <Footer />
+
+  <!-- Unlock -->
+  <dialog class="lately-dialog" id="latelyUnlock" aria-labelledby="latelyUnlockTitle">
+    <form method="dialog" id="latelyUnlockForm" autocomplete="off">
+      <h2 id="latelyUnlockTitle">Unlock editing</h2>
+      <label class="lately-field">
+        <span>Passcode</span>
+        <input type="password" id="latelyPasscode" autocomplete="current-password" required />
+      </label>
+      <p class="lately-error" id="latelyUnlockError" role="alert"></p>
+      <div class="lately-actions">
+        <button type="button" class="lately-btn" id="latelyUnlockCancel">Cancel</button>
+        <button type="submit" class="lately-btn lately-btn--primary" id="latelyUnlockGo">Unlock</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Upload -->
+  <dialog class="lately-dialog lately-dialog--wide" id="latelyUpload" aria-labelledby="latelyUploadTitle">
+    <h2 id="latelyUploadTitle">Add to Lately</h2>
+    <label class="lately-drop" id="latelyDrop" for="latelyFile">
+      <strong>Pick, drop or paste</strong>
+      <span>Images are converted to WebP, or JPEG where the browser can&rsquo;t (max 2000px). Videos up to 20&nbsp;MB &mdash; MP4 plays everywhere.</span>
+      <input type="file" id="latelyFile" multiple accept="image/*,video/mp4,video/webm,video/quicktime,.mov" />
+    </label>
+    <div class="lately-drafts" id="latelyDrafts"></div>
+    <p class="lately-error" id="latelyUploadError" role="alert"></p>
+    <div class="lately-actions">
+      <button type="button" class="lately-btn" id="latelyUploadCancel">Cancel</button>
+      <button type="button" class="lately-btn lately-btn--primary" id="latelyUploadGo" disabled>Add</button>
+    </div>
+  </dialog>
+
+  <!-- Edit one tile -->
+  <dialog class="lately-dialog" id="latelyEdit" aria-labelledby="latelyEditTitle">
+    <form method="dialog" id="latelyEditForm">
+      <h2 id="latelyEditTitle">Edit tile</h2>
+      <div id="latelyEditFields"></div>
+      <p class="lately-error" id="latelyEditError" role="alert"></p>
+      <div class="lately-actions">
+        <button type="button" class="lately-btn" id="latelyEditCancel">Cancel</button>
+        <button type="submit" class="lately-btn lately-btn--primary">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script>
+    import "../scripts/lately-client.js";
+  </script>
+</Layout>
