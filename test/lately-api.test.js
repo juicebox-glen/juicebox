@@ -36,7 +36,7 @@ function fakeStore(initial) {
   return {
     state,
     async readDoc() {
-      return { doc: structuredClone(state.doc), etag: state.etag };
+      return { doc: structuredClone(state.doc), etag: state.etag, latest: state.etag };
     },
     async writeDoc(doc, etag) {
       if (etag !== state.etag) throw new ConflictError();
@@ -268,6 +268,44 @@ test("a stale tab gets a conflict instead of overwriting newer changes", async (
   );
   assert.equal(response.statusCode, 409);
   assert.equal(store.state.writes, 0);
+});
+
+test("saving right after another save works even while the downloaded copy is stale", async () => {
+  // Blob already says the newest version is e2, but the CDN still hands back
+  // the old copy (and its old etag e1). The browser, which just saved, holds
+  // the newest etag and a full up-to-date document. This must go through:
+  // adding several items in a row is the normal way to use the page.
+  const store = fakeStore();
+  const stale = { version: 1, intro: "old", projects: ["WiiF", "Patch"], tiles: [] };
+  store.readDoc = async () => ({ doc: stale, etag: "e1", latest: "e2" });
+  const written = [];
+  store.writeDoc = async (doc, etag) => (written.push(etag), { etag: "e3" });
+
+  const response = res();
+  await createTiles({ store })(
+    req({ cookie: sessionCookie(), body: { doc: docWith([tile()]), etag: "e2" } }),
+    response,
+  );
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(written, ["e2"]); // the write itself is conditional on the newest version
+});
+
+test("a browser holding a stale copy is refused instead of overwriting newer tiles", async () => {
+  // A reload during the same stale window downloads the old copy WITH its old
+  // etag (e1). Saving from it must be refused, or the newest tiles would be dropped.
+  const store = fakeStore();
+  const stale = { version: 1, intro: "old", projects: ["WiiF", "Patch"], tiles: [] };
+  store.readDoc = async () => ({ doc: stale, etag: "e1", latest: "e2" });
+  let wrote = false;
+  store.writeDoc = async () => ((wrote = true), { etag: "e3" });
+
+  const response = res();
+  await createTiles({ store })(
+    req({ cookie: sessionCookie(), body: { doc: docWith([tile()]), etag: "e1" } }),
+    response,
+  );
+  assert.equal(response.statusCode, 409);
+  assert.equal(wrote, false);
 });
 
 test("discarding never deletes a file the page is using", async () => {

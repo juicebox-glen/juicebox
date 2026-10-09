@@ -48,7 +48,10 @@ async function save(req, res, store) {
 
   const sentEtag = typeof body.etag === "string" ? body.etag : null;
   const current = await store.readDoc();
-  if (current.etag !== sentEtag) {
+  // Is the browser's copy the newest? Judged by Blob's own latest version,
+  // not by the downloaded copy, which can lag behind for a few minutes.
+  // (The write below is also conditional on it, so this can't be raced.)
+  if (current.latest !== sentEtag) {
     return json(res, 409, { error: "Changed elsewhere", doc: current.doc, etag: current.etag });
   }
 
