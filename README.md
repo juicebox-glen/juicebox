@@ -29,7 +29,7 @@ Set these in Vercel (Project → Settings → Environment Variables). Never comm
 | Variable | Used by | Notes |
 | --- | --- | --- |
 | `LATELY_PASSCODE` | `/lately` editing | The passcode you type to unlock editing. Use a long one. Changing it signs every device out. Mark it Sensitive. |
-| `BLOB_READ_WRITE_TOKEN` | `/lately` storage | Added automatically when you connect a Blob store to the project. |
+| `BLOB_STORE_ID`, `BLOB_WEBHOOK_PUBLIC_KEY` | `/lately` storage | Added automatically when you connect a Blob store to the project. Stores created today use Vercel's built-in identity with these two, and have **no** `BLOB_READ_WRITE_TOKEN`; nothing here needs one. |
 | `RESEND_API_KEY` | questionnaire | See below. |
 
 Enable each variable for **Production and Preview** (and Development if you use `vercel env pull`). A preview deployment without them can't load or edit `/lately`.
@@ -66,7 +66,7 @@ Open `/lately#edit`, enter the passcode, and an **Upload** button appears at the
 
 #### One-time setup in Vercel
 
-1. Project → **Storage** → create a **Blob** store, with public access, and connect it to this project for Production, Preview and Development. This adds `BLOB_READ_WRITE_TOKEN`.
+1. Project → **Storage** → create a **Blob** store, with public access, and connect it to this project for Production and Preview. This adds `BLOB_STORE_ID` and `BLOB_WEBHOOK_PUBLIC_KEY`.
 2. Project → Settings → Environment Variables: add `LATELY_PASSCODE` for Production and Preview, marked Sensitive.
 3. Redeploy so the new variables apply.
 
@@ -77,7 +77,7 @@ Open `/lately#edit`, enter the passcode, and an **Upload** button appears at the
 | `GET /api/lately/tiles` | anyone | The page content, and whether this browser can edit. |
 | `PUT /api/lately/tiles` | editor | Replace the page content (validated server-side). Files no longer referenced are deleted from Blob. |
 | `DELETE /api/lately/tiles` | editor | Discard uploaded files that never made it onto the page. Never touches files in use. |
-| `POST /api/lately/upload` | editor | Hands the browser a short-lived token to upload straight to Blob (a function can't take a 20 MB body). The server decides the allowed types, size limit and folder. |
+| `POST /api/lately/upload` | editor | Gives the browser a short-lived permission (a Blob presigned URL) to upload **one named file** straight to Blob, upload only (a function can't take a 20 MB body). The server decides the allowed types, size limit and folder; an existing file can't be overwritten. |
 | `POST /api/lately/login` | anyone | Checks the passcode, sets the session cookie. |
 | `POST /api/lately/logout` | anyone | Clears the cookie. |
 
@@ -94,7 +94,7 @@ Open `/lately#edit`, enter the passcode, and an **Upload** button appears at the
 
 `npm run dev`, then open **`/lately?mock`** to see the page as a visitor, or **`/lately?mock&edit`** to start unlocked (the mock passcode is `mock`). This runs the page against an in-memory fake of the API with sample tiles. Nothing is saved, and the mock code is stripped from production builds (it sits behind `import.meta.env.DEV`).
 
-Real uploads and the real passcode can only be tried on a Vercel deployment, where `api/` and Blob exist.
+Real uploads and the real passcode can only be tried on a Vercel deployment, where `api/` and Blob exist. The store's built-in identity only works from deployed Production and Preview code; Vercel deliberately blocks it from a laptop (the Development environment).
 
 ## Secrets
 

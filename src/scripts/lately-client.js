@@ -5,7 +5,7 @@
 // reorder and delete tiles. Nothing built from stored data goes through
 // innerHTML: text is always set with textContent.
 
-import { upload } from "@vercel/blob/client";
+import { uploadPresigned } from "@vercel/blob/client";
 import {
   MAX_VIDEO_BYTES,
   MAX_IMAGE_BYTES,
@@ -76,18 +76,21 @@ const state = {
 
 // How a file gets to Blob. Replaced by a fake in the dev-only mock mode.
 //
-// If our server refuses to issue the upload token, the Blob library only
-// says "Failed to retrieve the client token" and drops our reason. In that
+// Uses Blob's presigned-URL flow, which works with the store's built-in
+// Vercel identity (no read-write token needed).
+//
+// If our server refuses to give upload permission, the Blob library only
+// says "Failed to retrieve the presigned URL" and drops our reason. In that
 // case ask the route again to find out what it actually said.
 async function realUpload(pathname, body, options) {
   try {
-    return await upload(pathname, body, options);
+    return await uploadPresigned(pathname, body, options);
   } catch (error) {
-    if (!/client token/i.test(String(error && error.message))) throw error;
+    if (!/(presigned|client token)/i.test(String(error && error.message))) throw error;
     const res = await api("/api/lately/upload", {
       method: "POST",
       body: {
-        type: "blob.generate-client-token",
+        type: "blob.generate-presigned-url",
         payload: { pathname, clientPayload: options.clientPayload, multipart: false },
       },
     });

@@ -4,7 +4,12 @@ import { BlobError } from "@vercel/blob";
 
 import { buildSessionCookie } from "../api/_lib/lately-auth.js";
 import { ConflictError } from "../api/_lib/lately-store.js";
-import { MAX_VIDEO_BYTES, MAX_POSTER_BYTES, uploadRule } from "../api/_lib/lately-schema.js";
+import {
+  MAX_VIDEO_BYTES,
+  MAX_IMAGE_BYTES,
+  MAX_POSTER_BYTES,
+  uploadRule,
+} from "../api/_lib/lately-schema.js";
 import { createHandler as createTiles } from "../api/lately/tiles.js";
 import { createHandler as createUpload } from "../api/lately/upload.js";
 import { createHandler as createLogin } from "../api/lately/login.js";
@@ -334,35 +339,63 @@ test("upload rules: 20 MB video cap, WebP or JPEG images tied to their extension
   assert.equal(uploadRule("lately/media/abcd1234-clip.mp4", "not json"), null);
 });
 
-test("a signed-in editor is issued a JPEG-only upload token for a .jpg file", async () => {
-  // A stand-in for Blob's handleUpload that runs our rules and returns what
-  // the server would have allowed.
+test("a signed-in editor is given upload permission for exactly one .jpg file", async () => {
+  // Stand-ins for Blob: `issue` records the permission we ask it to mint, and
+  // `upload` (Blob's presigned handler) just runs our getSignedToken.
+  const issued = [];
   const handler = createUpload({
-    upload: async ({ body, onBeforeGenerateToken }) => {
-      const { pathname, clientPayload } = body.payload;
-      return { constraints: await onBeforeGenerateToken(pathname, clientPayload, false) };
+    issue: async (options) => {
+      issued.push(options);
+      return { fakeToken: true };
+    },
+    upload: async ({ body, getSignedToken }) => {
+      const { pathname, clientPayload, multipart } = body.payload;
+      return { type: body.type, ...(await getSignedToken(pathname, clientPayload, multipart)) };
     },
   });
   const ask = (pathname, kind) => ({
-    type: "blob.generate-client-token",
+    type: "blob.generate-presigned-url",
     payload: { pathname, clientPayload: JSON.stringify({ kind }), multipart: false },
   });
 
+  const path = "lately/media/abcd1234-shot.jpg";
+  const before = Date.now();
   const ok = res();
-  await handler(
-    req({ method: "POST", cookie: sessionCookie(), body: ask("lately/media/abcd1234-shot.jpg", "image") }),
-    ok,
-  );
-  assert.equal(ok.statusCode, 200);
-  assert.deepEqual(ok.body.constraints.allowedContentTypes, ["image/jpeg"]);
-  assert.equal(ok.body.constraints.addRandomSuffix, true);
+  await handler(req({ method: "POST", cookie: sessionCookie(), body: ask(path, "image") }), ok);
 
+  assert.equal(ok.statusCode, 200);
+  assert.equal(issued.length, 1);
+  const [perm] = issued;
+  assert.equal(perm.pathname, path); // this one file, not the whole store
+  assert.deepEqual(perm.operations, ["put"]); // upload only: no read, no delete
+  assert.deepEqual(perm.allowedContentTypes, ["image/jpeg"]);
+  assert.equal(perm.maximumSizeInBytes, MAX_IMAGE_BYTES);
+  assert.ok(perm.validUntil > before && perm.validUntil <= before + 11 * 60 * 1000, "expires within ~10 minutes");
+
+  // the same limits go on the presigned URL, and an existing file can't be replaced
+  const { urlOptions } = ok.body;
+  assert.deepEqual(urlOptions.allowedContentTypes, ["image/jpeg"]);
+  assert.equal(urlOptions.maximumSizeInBytes, MAX_IMAGE_BYTES);
+  assert.notEqual(urlOptions.allowOverwrite, true);
+  assert.equal(urlOptions.addRandomSuffix, undefined);
+
+  // a video gets the 20 MB cap
+  issued.length = 0;
+  await handler(
+    req({ method: "POST", cookie: sessionCookie(), body: ask("lately/media/abcd1234-clip.mp4", "video") }),
+    res(),
+  );
+  assert.equal(issued[0].maximumSizeInBytes, MAX_VIDEO_BYTES);
+
+  // a disallowed file is refused and no permission is ever requested for it
+  issued.length = 0;
   const refused = res();
   await handler(
     req({ method: "POST", cookie: sessionCookie(), body: ask("lately/media/abcd1234-shot.png", "image") }),
     refused,
   );
   assert.equal(refused.statusCode, 400);
+  assert.equal(issued.length, 0);
 });
 
 test("a Blob storage problem is reported readably, not as a bare 'Server error'", async () => {
