@@ -3,6 +3,7 @@
 //
 //   /lately?mock          the page, as a visitor sees it
 //   /lately?mock&edit     the page, already unlocked
+//   /lately?mock&edit&realupload   real upload code; fake server refuses the token
 //   passcode in this mode: "mock"
 //
 // Nothing here is saved anywhere and none of it ships: the only import of
@@ -85,6 +86,10 @@ export function install({ editing }) {
     }
     if (url === "/api/lately/tiles" && method === "DELETE") {
       return reply(200, { deleted: (body.urls || []).length });
+    }
+    if (url === "/api/lately/upload") {
+      // Only reached with &realupload: pretend the server refused the token.
+      return reply(400, { error: "Mock refusal: the Blob store is private" });
     }
     return reply(404, { error: "Not found" });
   };

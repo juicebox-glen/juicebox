@@ -6,6 +6,7 @@
 //
 // Every route that changes anything checks the signed cookie first.
 
+import { BlobError } from "@vercel/blob";
 import { isAuthed } from "../_lib/lately-auth.js";
 import { json, isJsonRequest, isSameOrigin } from "../_lib/lately-http.js";
 import { validateDoc, docUrls, isBlobUrl } from "../_lib/lately-schema.js";
@@ -30,6 +31,11 @@ export function createHandler({ store = createBlobStore() } = {}) {
       return json(res, 405, { error: "Method not allowed" });
     } catch (error) {
       console.error("lately/tiles error:", error);
+      // Storage problems (wrong store type, missing token, ...) carry a
+      // readable message from Vercel Blob. Pass it on so it's diagnosable.
+      if (error instanceof BlobError) {
+        return json(res, 502, { error: `Storage problem: ${String(error.message).slice(0, 240)}` });
+      }
       return json(res, 500, { error: "Server error" });
     }
   };

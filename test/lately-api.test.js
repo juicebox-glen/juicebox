@@ -1,5 +1,6 @@
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
+import { BlobError } from "@vercel/blob";
 
 import { buildSessionCookie } from "../api/_lib/lately-auth.js";
 import { ConflictError } from "../api/_lib/lately-store.js";
@@ -362,6 +363,22 @@ test("a signed-in editor is issued a JPEG-only upload token for a .jpg file", as
     refused,
   );
   assert.equal(refused.statusCode, 400);
+});
+
+test("a Blob storage problem is reported readably, not as a bare 'Server error'", async () => {
+  const store = fakeStore();
+  store.writeDoc = async () => {
+    throw new BlobError("This store is private, use access: 'private'");
+  };
+  const response = res();
+  await createTiles({ store })(
+    req({ cookie: sessionCookie(), body: { doc: docWith([tile()]), etag: store.state.etag } }),
+    response,
+  );
+  assert.equal(response.statusCode, 502);
+  assert.match(response.body.error, /^Storage problem: .*private/);
+  // ...but it never echoes anything secret: the message is Blob's own text.
+  assert.doesNotMatch(JSON.stringify(response.body), /vercel_blob_rw_|LATELY_PASSCODE|correct horse/);
 });
 
 test("a tile with a JPEG image saves like any other", async () => {

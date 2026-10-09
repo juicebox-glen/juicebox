@@ -75,7 +75,31 @@ const state = {
 };
 
 // How a file gets to Blob. Replaced by a fake in the dev-only mock mode.
-let uploadImpl = (pathname, body, options) => upload(pathname, body, options);
+//
+// If our server refuses to issue the upload token, the Blob library only
+// says "Failed to retrieve the client token" and drops our reason. In that
+// case ask the route again to find out what it actually said.
+async function realUpload(pathname, body, options) {
+  try {
+    return await upload(pathname, body, options);
+  } catch (error) {
+    if (!/client token/i.test(String(error && error.message))) throw error;
+    const res = await api("/api/lately/upload", {
+      method: "POST",
+      body: {
+        type: "blob.generate-client-token",
+        payload: { pathname, clientPayload: options.clientPayload, multipart: false },
+      },
+    });
+    if (res.status === 401) throw new Error("you’re signed out, so unlock editing again");
+    throw new Error(
+      (res.data && res.data.error) || `the server refused the upload (status ${res.status || "no response"})`,
+    );
+  }
+}
+let uploadImpl = realUpload;
+
+const reasonOf = (error) => String((error && error.message) || "unknown error").replace(/\.$/, "");
 
 /* ------------------------------------------------------------------ */
 /* talking to the server                                               */
@@ -927,13 +951,13 @@ dom.uploadGo.addEventListener("click", async () => {
       setNote(draft, "Uploaded");
     } catch (error) {
       failed = error;
-      setNote(draft, "Upload failed", "error");
+      setNote(draft, `Upload failed: ${reasonOf(error)}`, "error");
       break;
     }
   }
 
   if (failed) {
-    dom.uploadError.textContent = "Couldn’t upload everything. Press Add to try again.";
+    dom.uploadError.textContent = `Couldn’t upload everything: ${reasonOf(failed)}. Press Add to try again.`;
   } else {
     const tiles = drafts.map((draft, i) => ({
       id: draft.id,
@@ -1009,10 +1033,13 @@ async function init() {
   // Dev-only: `npm run dev` then /lately?mock (add &edit to start unlocked)
   // runs the page against an in-memory fake server. This whole branch is
   // removed from the production build.
-  if (import.meta.env.DEV && new URLSearchParams(location.search).has("mock")) {
+  const params = new URLSearchParams(location.search);
+  if (import.meta.env.DEV && params.has("mock")) {
     const mock = await import("./lately-dev-mock.js");
-    uploadImpl = mock.fakeUpload;
-    mock.install({ editing: new URLSearchParams(location.search).has("edit") });
+    // &realupload keeps the real upload code, with the fake server refusing
+    // the token, to see how a failed upload is reported.
+    if (!params.has("realupload")) uploadImpl = mock.fakeUpload;
+    mock.install({ editing: params.has("edit") });
   }
 
   const res = await api("/api/lately/tiles");
