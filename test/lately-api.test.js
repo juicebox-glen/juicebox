@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 import { buildSessionCookie } from "../api/_lib/lately-auth.js";
 import { ConflictError } from "../api/_lib/lately-store.js";
-import { MAX_VIDEO_BYTES, uploadRule } from "../api/_lib/lately-schema.js";
+import { MAX_VIDEO_BYTES, MAX_POSTER_BYTES, uploadRule } from "../api/_lib/lately-schema.js";
 import { createHandler as createTiles } from "../api/lately/tiles.js";
 import { createHandler as createUpload } from "../api/lately/upload.js";
 import { createHandler as createLogin } from "../api/lately/login.js";
@@ -122,7 +122,13 @@ test("upload refuses without the cookie, and never asks Blob for a token", async
   await handler(
     req({
       method: "POST",
-      body: { type: "blob.generate-client-token", payload: { pathname: "x", clientPayload: "{}" } },
+      body: {
+        type: "blob.generate-client-token",
+        payload: {
+          pathname: "lately/media/abcd1234-shot.jpg",
+          clientPayload: JSON.stringify({ kind: "image" }),
+        },
+      },
     }),
     response,
   );
@@ -292,19 +298,32 @@ test("the server rejects content it shouldn't store", async () => {
   }
 });
 
-test("upload rules: 20 MB video cap, WebP-only images, and our folder only", () => {
+test("upload rules: 20 MB video cap, WebP or JPEG images tied to their extension, our folder only", () => {
   const video = uploadRule("lately/media/abcd1234-clip.mp4", JSON.stringify({ kind: "video" }));
   assert.equal(video.maximumSizeInBytes, MAX_VIDEO_BYTES);
   assert.equal(MAX_VIDEO_BYTES, 20 * 1024 * 1024);
   assert.ok(video.allowedContentTypes.includes("video/mp4"));
 
-  const image = uploadRule("lately/media/abcd1234-shot.webp", JSON.stringify({ kind: "image" }));
-  assert.deepEqual(image.allowedContentTypes, ["image/webp"]);
+  // WebP is the normal case; JPEG is the fallback for browsers that can't encode WebP.
+  const types = (pathname, kind) =>
+    uploadRule(pathname, JSON.stringify({ kind }))?.allowedContentTypes;
+  assert.deepEqual(types("lately/media/abcd1234-shot.webp", "image"), ["image/webp"]);
+  assert.deepEqual(types("lately/media/abcd1234-shot.jpg", "image"), ["image/jpeg"]);
+  assert.deepEqual(types("lately/media/abcd1234-frame.webp", "poster"), ["image/webp"]);
+  assert.deepEqual(types("lately/media/abcd1234-frame.jpg", "poster"), ["image/jpeg"]);
+  assert.equal(
+    uploadRule("lately/media/abcd1234-frame.jpg", JSON.stringify({ kind: "poster" })).maximumSizeInBytes,
+    MAX_POSTER_BYTES,
+  );
 
   const bad = [
     ["lately/media/abcd1234-shot.png", { kind: "image" }],
+    ["lately/media/abcd1234-shot.jpeg", { kind: "image" }],
+    ["lately/media/abcd1234-shot.gif", { kind: "image" }],
+    ["lately/media/abcd1234-shot.jpg", { kind: "video" }],
+    ["lately/media/abcd1234-clip.mp4", { kind: "image" }],
     ["lately/media/abcd1234-clip.exe", { kind: "video" }],
-    ["somewhere-else/abcd1234-clip.mp4", { kind: "video" }],
+    ["somewhere-else/abcd1234-shot.jpg", { kind: "image" }],
     ["lately/media/../tiles.json", { kind: "image" }],
     ["lately/media/abcd1234-clip.mp4", { kind: "script" }],
   ];
@@ -312,4 +331,47 @@ test("upload rules: 20 MB video cap, WebP-only images, and our folder only", () 
     assert.equal(uploadRule(pathname, JSON.stringify(payload)), null, pathname);
   }
   assert.equal(uploadRule("lately/media/abcd1234-clip.mp4", "not json"), null);
+});
+
+test("a signed-in editor is issued a JPEG-only upload token for a .jpg file", async () => {
+  // A stand-in for Blob's handleUpload that runs our rules and returns what
+  // the server would have allowed.
+  const handler = createUpload({
+    upload: async ({ body, onBeforeGenerateToken }) => {
+      const { pathname, clientPayload } = body.payload;
+      return { constraints: await onBeforeGenerateToken(pathname, clientPayload, false) };
+    },
+  });
+  const ask = (pathname, kind) => ({
+    type: "blob.generate-client-token",
+    payload: { pathname, clientPayload: JSON.stringify({ kind }), multipart: false },
+  });
+
+  const ok = res();
+  await handler(
+    req({ method: "POST", cookie: sessionCookie(), body: ask("lately/media/abcd1234-shot.jpg", "image") }),
+    ok,
+  );
+  assert.equal(ok.statusCode, 200);
+  assert.deepEqual(ok.body.constraints.allowedContentTypes, ["image/jpeg"]);
+  assert.equal(ok.body.constraints.addRandomSuffix, true);
+
+  const refused = res();
+  await handler(
+    req({ method: "POST", cookie: sessionCookie(), body: ask("lately/media/abcd1234-shot.png", "image") }),
+    refused,
+  );
+  assert.equal(refused.statusCode, 400);
+});
+
+test("a tile with a JPEG image saves like any other", async () => {
+  const store = fakeStore();
+  const jpeg = tile({ url: `${HOST}/image-9-aaaa.jpg` });
+  const response = res();
+  await createTiles({ store })(
+    req({ cookie: sessionCookie(), body: { doc: docWith([jpeg]), etag: store.state.etag } }),
+    response,
+  );
+  assert.equal(response.statusCode, 200);
+  assert.equal(store.state.doc.tiles[0].url, jpeg.url);
 });

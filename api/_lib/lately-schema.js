@@ -182,20 +182,27 @@ export function docUrls(doc) {
 // Rules for what the browser is allowed to upload, decided by the server
 // before it hands out an upload token. `kind` comes from the client but
 // every limit is looked up here.
+//
+// Images and posters are WebP, or JPEG for browsers that can't encode
+// WebP (Safari). The file extension decides the one content type allowed:
+// a .jpg path can only upload image/jpeg, and a .webp path image/webp.
+const IMAGE_PATHNAME = new RegExp(`^${MEDIA_PREFIX}[A-Za-z0-9-]{8,64}\\.(webp|jpg)$`);
+const imageTypesFor = (pathname) => (pathname.endsWith(".jpg") ? ["image/jpeg"] : ["image/webp"]);
+
 const UPLOAD_RULES = {
   image: {
-    pathname: new RegExp(`^${MEDIA_PREFIX}[A-Za-z0-9-]{8,64}\\.webp$`),
-    types: ["image/webp"],
+    pathname: IMAGE_PATHNAME,
+    typesFor: imageTypesFor,
     max: MAX_IMAGE_BYTES,
   },
   poster: {
-    pathname: new RegExp(`^${MEDIA_PREFIX}[A-Za-z0-9-]{8,64}\\.webp$`),
-    types: ["image/webp"],
+    pathname: IMAGE_PATHNAME,
+    typesFor: imageTypesFor,
     max: MAX_POSTER_BYTES,
   },
   video: {
     pathname: new RegExp(`^${MEDIA_PREFIX}[A-Za-z0-9-]{8,64}\\.(mp4|webm|mov)$`),
-    types: ["video/mp4", "video/webm", "video/quicktime"],
+    typesFor: () => ["video/mp4", "video/webm", "video/quicktime"],
     max: MAX_VIDEO_BYTES,
   },
 };
@@ -209,5 +216,5 @@ export function uploadRule(pathname, clientPayload) {
   }
   const rule = Object.hasOwn(UPLOAD_RULES, kind) ? UPLOAD_RULES[kind] : null;
   if (!rule || typeof pathname !== "string" || !rule.pathname.test(pathname)) return null;
-  return { allowedContentTypes: rule.types, maximumSizeInBytes: rule.max };
+  return { allowedContentTypes: rule.typesFor(pathname), maximumSizeInBytes: rule.max };
 }

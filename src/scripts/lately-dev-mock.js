@@ -92,6 +92,8 @@ export function install({ editing }) {
 
 // Stands in for the browser-to-Blob upload: hands back a local blob: URL.
 export async function fakeUpload(pathname, body, options) {
+  // Kept on window so a test can see exactly what the page asked to upload.
+  (window.__latelyUploads ||= []).push({ pathname, type: body.type, contentType: options.contentType, size: body.size });
   for (const percentage of [20, 60, 100]) {
     options.onUploadProgress?.({ loaded: percentage, total: 100, percentage });
     await delay(120);

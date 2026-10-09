@@ -51,14 +51,12 @@ A masonry grid of what's being made at the moment (images and short videos with 
 Open `/lately#edit`, enter the passcode, and an **Upload** button appears at the top left. Nothing about editing is visible to visitors.
 
 - **Add:** pick, drop or paste images and videos, then fill in the title, line, link and project. New tiles go to the top. A new project name can be typed straight into the project field.
-- **Images** are re-encoded to WebP in the browser (longest side at most 2000px, all metadata stripped). GIFs are refused, because WebP would flatten them: convert to MP4 and upload that as a video.
+- **Images** are re-encoded in the browser to WebP, or, for browsers that can't encode WebP (Safari, including on iPhone), to JPEG at quality 0.85. Either way the longest side is at most 2000px and all metadata is stripped. JPEG has no transparency, so anything see-through gets a white background. GIFs are refused, because they'd be flattened to a still: convert to MP4 and upload that as a video.
 - **Videos** are uploaded as they are, up to **20 MB** (MP4/H.264 plays everywhere; MOV from an iPhone may not play in every browser). A poster frame is captured in the browser and stored in Blob next to the video. Videos are shown with that poster and `preload="none"`, so nothing downloads until someone presses play.
 - **Lazy loading:** images and video posters below the first screen load as they come near the viewport.
 - **Edit, reorder, delete** each tile with the buttons under it. Reorder by dragging (mouse) or with Earlier / Later (works on a phone). Deleting a tile removes its file, and poster, from Blob too.
 - The hello text at the top is editable in place. It saves when you click away.
 - **Lock** signs this browser out.
-
-Uploading needs the browser to be able to encode WebP, which Chrome, Edge and Firefox can. Safari may not, and will say so.
 
 ### Storage
 
@@ -108,7 +106,7 @@ gitleaks git --redact --no-banner .
 
 ## Known limitations
 
-- Safari may be unable to encode WebP, so image and video uploads should be done in Chrome, Edge or Firefox.
+- A video's poster frame is captured by the browser itself, so the browser has to be able to play the clip. If it can't, the page says so; export as MP4 (H.264), which plays everywhere.
 - `astro dev` doesn't run `api/`; use the mock locally.
 - Vercel Blob's free allowance is small. Many 20 MB videos will use it up, so check usage in the Vercel dashboard.
 - `npm audit` reports issues in Astro's own dependencies (devalue, sharp, smol-toml and others). They predate the Lately work and are not in `@vercel/blob`.

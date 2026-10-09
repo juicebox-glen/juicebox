@@ -8,6 +8,8 @@
 import { upload } from "@vercel/blob/client";
 import {
   MAX_VIDEO_BYTES,
+  MAX_IMAGE_BYTES,
+  MAX_POSTER_BYTES,
   MAX_INTRO,
   MAX_TITLE,
   MAX_LINE,
@@ -17,6 +19,7 @@ import {
 
 const IMAGE_MAX_EDGE = 2000;
 const POSTER_MAX_EDGE = 1280;
+const JPEG_QUALITY = 0.85;
 const VIDEO_TYPES = {
   mp4: "video/mp4",
   webm: "video/webm",
@@ -700,45 +703,99 @@ async function processFile(draft) {
   updateUploadButton();
 }
 
-// Draw to a canvas and re-encode as WebP. Going through a canvas also drops
-// all metadata (location, camera, etc.).
-async function toWebp(source, width, height, maxEdge, quality) {
+const encode = (canvas, type, quality) =>
+  new Promise((resolve) => canvas.toBlob(resolve, type, quality));
+
+// Draw to a canvas and re-encode: WebP where the browser can, otherwise JPEG
+// (Safari can't encode WebP and quietly hands back a PNG instead). Going
+// through a canvas also drops all metadata (location, camera, etc.).
+async function toImageBlob(source, width, height, maxEdge, webpQuality) {
   const scale = Math.min(1, maxEdge / Math.max(width, height));
   const w = Math.max(1, Math.round(width * scale));
   const h = Math.max(1, Math.round(height * scale));
   const canvas = document.createElement("canvas");
   canvas.width = w;
   canvas.height = h;
-  canvas.getContext("2d").drawImage(source, 0, 0, w, h);
-  const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/webp", quality));
-  if (!blob || blob.type !== "image/webp") {
-    throw new Error("This browser can’t make WebP images. Use Chrome, Edge or Firefox to upload.");
+  const context = canvas.getContext("2d");
+  context.drawImage(source, 0, 0, w, h);
+
+  let blob = await encode(canvas, "image/webp", webpQuality);
+  if (blob && blob.type === "image/webp") {
+    return { blob, width: w, height: h, format: "webp", ext: "webp" };
   }
-  return { blob, width: w, height: h };
+
+  // JPEG has no transparency, so put white behind anything see-through
+  // (otherwise a transparent PNG would come out black).
+  context.globalCompositeOperation = "destination-over";
+  context.fillStyle = "#fff";
+  context.fillRect(0, 0, w, h);
+  blob = await encode(canvas, "image/jpeg", JPEG_QUALITY);
+  if (!blob || blob.type !== "image/jpeg") {
+    throw new Error("This browser couldn’t convert the image. Try Chrome, Edge or Firefox.");
+  }
+  return { blob, width: w, height: h, format: "jpeg", ext: "jpg" };
+}
+
+// Decode an image file, preferring the path that keeps phone-photo rotation
+// right. Older Safari can be fussy about createImageBitmap options, so fall
+// back step by step to a plain <img>. Call release() when finished drawing.
+async function decodeImage(file) {
+  try {
+    const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+    return { source: bitmap, width: bitmap.width, height: bitmap.height, release: () => bitmap.close() };
+  } catch {
+    /* try the next way */
+  }
+  try {
+    const bitmap = await createImageBitmap(file);
+    return { source: bitmap, width: bitmap.width, height: bitmap.height, release: () => bitmap.close() };
+  } catch {
+    /* try the next way */
+  }
+  const url = URL.createObjectURL(file);
+  try {
+    const image = new Image();
+    image.src = url;
+    await image.decode();
+    return {
+      source: image,
+      width: image.naturalWidth,
+      height: image.naturalHeight,
+      release: () => URL.revokeObjectURL(url),
+    };
+  } catch {
+    URL.revokeObjectURL(url);
+    throw new Error("Couldn’t read this image in your browser.");
+  }
 }
 
 async function processImage(draft) {
   const { file } = draft;
   if (file.type === "image/gif") {
-    throw new Error("A GIF would lose its animation as WebP. Convert it to MP4 and upload that instead.");
+    throw new Error("A GIF would lose its animation as a still image. Convert it to MP4 and upload that instead.");
   }
   if (file.type === "image/svg+xml") throw new Error("SVGs aren’t supported. Export a PNG or JPG.");
 
-  let bitmap;
+  const decoded = await decodeImage(file);
+  let result;
   try {
-    bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
-  } catch {
-    throw new Error("Couldn’t read this image in your browser.");
+    result = await toImageBlob(decoded.source, decoded.width, decoded.height, IMAGE_MAX_EDGE, 0.85);
+  } finally {
+    decoded.release();
   }
-  const { blob, width, height } = await toWebp(bitmap, bitmap.width, bitmap.height, IMAGE_MAX_EDGE, 0.85);
-  bitmap.close();
+  if (result.blob.size > MAX_IMAGE_BYTES) {
+    throw new Error(`This image is still ${formatBytes(result.blob.size)} after converting. Try a smaller one.`);
+  }
 
   draft.kind = "image";
-  draft.blob = blob;
-  draft.width = width;
-  draft.height = height;
-  draft.preview = URL.createObjectURL(blob);
-  draft.summary = `Image · WebP ${width}×${height} · ${formatBytes(blob.size)}`;
+  draft.blob = result.blob;
+  draft.ext = result.ext;
+  draft.width = result.width;
+  draft.height = result.height;
+  draft.preview = URL.createObjectURL(result.blob);
+  const format = result.format === "webp" ? "WebP" : "JPEG";
+  draft.summary = `Image · ${format} ${result.width}×${result.height} · ${formatBytes(result.blob.size)}`;
+  if (result.format === "jpeg") draft.summary += " · this browser can’t make WebP, so JPEG";
 }
 
 function capturePoster(file) {
@@ -771,8 +828,8 @@ function capturePoster(file) {
     });
     video.addEventListener("seeked", async () => {
       try {
-        const { blob } = await toWebp(video, video.videoWidth, video.videoHeight, POSTER_MAX_EDGE, 0.8);
-        finish(null, { poster: blob, width: video.videoWidth, height: video.videoHeight });
+        const poster = await toImageBlob(video, video.videoWidth, video.videoHeight, POSTER_MAX_EDGE, 0.8);
+        finish(null, { poster, width: video.videoWidth, height: video.videoHeight });
       } catch (error) {
         finish(error);
       }
@@ -789,14 +846,16 @@ async function processVideo(draft, ext) {
     throw new Error(`This video is ${formatBytes(file.size)}. The limit is 20 MB, so compress it and try again.`);
   }
   const { poster, width, height } = await capturePoster(file);
+  if (poster.blob.size > MAX_POSTER_BYTES) throw new Error("The poster frame came out too large. Try another clip.");
 
   draft.kind = "video";
   draft.contentType = type;
   draft.ext = Object.hasOwn(VIDEO_TYPES, ext) ? ext : "mp4";
-  draft.poster = poster;
+  draft.poster = poster.blob;
+  draft.posterExt = poster.ext;
   draft.width = width;
   draft.height = height;
-  draft.preview = URL.createObjectURL(poster);
+  draft.preview = URL.createObjectURL(poster.blob);
   draft.summary = `Video · ${width}×${height} · ${formatBytes(file.size)} · poster frame captured`;
   if (ext === "mov") draft.summary += " · MOV may not play in every browser";
 }
@@ -857,9 +916,11 @@ dom.uploadGo.addEventListener("click", async () => {
       setNote(draft, "Uploading…");
       const progress = (p) => setNote(draft, `Uploading ${Math.round(p.percentage)}%`);
       if (draft.kind === "image") {
-        draft.uploaded = { url: await uploadBlob(draft.blob, "image", "webp", "image/webp", progress) };
+        draft.uploaded = {
+          url: await uploadBlob(draft.blob, "image", draft.ext, draft.blob.type, progress),
+        };
       } else {
-        const poster = await uploadBlob(draft.poster, "poster", "webp", "image/webp");
+        const poster = await uploadBlob(draft.poster, "poster", draft.posterExt, draft.poster.type);
         const url = await uploadBlob(draft.file, "video", draft.ext, draft.contentType, progress);
         draft.uploaded = { url, poster };
       }
