@@ -4,6 +4,7 @@ interface Props {
   description?: string;
   ogImage?: string;
   facebookVerification?: string;
+  noindex?: boolean;
 }
 
 const {
@@ -11,6 +12,7 @@ const {
   description = "Juicebox is a creative studio that delivers playful, purposeful brands to passionate people.",
   ogImage = "https://uploads-ssl.webflow.com/658d74d5cbeb870d23abb1c0/65ca39b07406af66ca255994_juicebox.png",
   facebookVerification,
+  noindex = false,
 } = Astro.props;
 ---
 
@@ -28,6 +30,7 @@ const {
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    {noindex && <meta name="robots" content="noindex, nofollow" />}
     <link href="/css/normalize.css" rel="stylesheet" type="text/css" />
     <link href="/css/webflow.css" rel="stylesheet" type="text/css" />
     <link href="/css/juicebox-913d95.webflow.css" rel="stylesheet" type="text/css" />

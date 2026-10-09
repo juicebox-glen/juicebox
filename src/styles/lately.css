@@ -1,0 +1,493 @@
+/* /lately — built on the site's own tokens (--black, --light, --bolt,
+   --purple, --grey) and fonts, so it reads as part of studio-juicebox.com. */
+
+/* ---- header ------------------------------------------------------- */
+
+/* The site footer is position: sticky, pinned to the bottom of the screen.
+   Like the hero on the other pages, the header has to sit above it (z-index
+   10 vs the footer's 9) with an opaque background, or the footer shows
+   through at the top of the page. */
+.lately-head {
+  position: relative;
+  z-index: 10;
+  width: 100%;
+  padding: clamp(120px, 20vh, 220px) max(5%, calc((100% - 1296px) / 2)) calc(clamp(40px, 7vh, 72px) + 24px);
+  /* tuck 24px under the panel so its rounded corners show grey, not the footer */
+  margin-bottom: -24px;
+  background-color: #bdbdb6;
+}
+
+.lately-title {
+  font-size: clamp(3.75rem, 14vw, 5.938rem);
+}
+
+.lately-hello {
+  max-width: 34ch;
+  margin: 28px 0 0;
+  font-family: "Gt Pressura Mono Text", sans-serif;
+  font-size: clamp(1.05rem, 2.4vw, 1.35rem);
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.is-editing .lately-hello {
+  min-height: 1.5em;
+  padding: 6px 10px;
+  margin-left: -10px;
+  outline: 1px dashed rgba(34, 34, 36, 0.45);
+  cursor: text;
+}
+
+.is-editing .lately-hello:focus {
+  outline: 2px solid var(--black);
+}
+
+.is-editing .lately-hello:empty::before {
+  content: "Write a short hello\2026";
+  opacity: 0.5;
+}
+
+/* ---- edit toolbar (top left, only once unlocked) ------------------- */
+
+.lately-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 32px;
+}
+
+.lately-toolbar[hidden] {
+  display: none;
+}
+
+.lately-status {
+  font-size: 0.9rem;
+  opacity: 0.75;
+  min-height: 1.2em;
+}
+
+.lately-status[data-kind="error"] {
+  color: #b0432e;
+  opacity: 1;
+}
+
+/* ---- buttons ------------------------------------------------------ */
+
+.lately-btn {
+  height: 38px;
+  padding: 0 18px 1px;
+  border: 1px solid var(--black);
+  border-radius: 20px;
+  background: transparent;
+  color: var(--black);
+  font: inherit;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+.lately-btn:hover {
+  background: rgba(34, 34, 36, 0.08);
+}
+
+.lately-btn--primary {
+  background: var(--bolt);
+}
+
+.lately-btn--primary:hover {
+  background: #d9fa97;
+}
+
+.lately-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.lately-btn:focus-visible,
+.lately-chip:focus-visible,
+.tile-play:focus-visible,
+.tile-tools button:focus-visible {
+  outline: 2px solid var(--black);
+  outline-offset: 2px;
+}
+
+/* ---- the cream panel ---------------------------------------------- */
+
+.work.lately {
+  min-height: 70vh;
+  padding-top: clamp(36px, 5vw, 64px);
+  padding-bottom: 14vh;
+}
+
+.lately-wrap {
+  width: 90%;
+  max-width: 1440px;
+  margin: 0 auto;
+}
+
+/* ---- project chips ------------------------------------------------ */
+
+.lately-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 44px;
+}
+
+.lately-chip {
+  height: 30px;
+  padding: 0 14px 1px;
+  border: 1px solid var(--black);
+  border-radius: 20px;
+  background: transparent;
+  color: var(--black);
+  font: inherit;
+  font-size: 0.9rem;
+  letter-spacing: 0.2px;
+  cursor: pointer;
+}
+
+.lately-chip:hover {
+  background: rgba(34, 34, 36, 0.08);
+}
+
+.lately-chip[aria-pressed="true"] {
+  background: var(--bolt);
+}
+
+/* ---- masonry ------------------------------------------------------ */
+
+.lately-grid {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.lately-col {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: 44px;
+  min-width: 0;
+}
+
+.lately-empty {
+  margin: 40px 0 0;
+  opacity: 0.7;
+}
+
+/* ---- tiles -------------------------------------------------------- */
+
+.tile {
+  margin: 0;
+}
+
+.tile-media {
+  position: relative;
+  overflow: hidden;
+  background: #e8e5da;
+}
+
+.tile-media img,
+.tile-media video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.tile-play {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  padding: 0;
+  transform: translate(-50%, -50%);
+  border: 0;
+  border-radius: 50%;
+  background: var(--bolt);
+  cursor: pointer;
+}
+
+.tile-play::before {
+  content: "";
+  margin-left: 4px;
+  border-style: solid;
+  border-width: 11px 0 11px 18px;
+  border-color: transparent transparent transparent var(--black);
+}
+
+.tile-play:hover {
+  background: #d9fa97;
+}
+
+.tile-meta {
+  margin-top: 16px;
+}
+
+.tile-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.tile-title {
+  margin: 0;
+  font-family: "Gt Pressura Mono Text", sans-serif;
+  font-size: 1.2rem;
+  font-weight: 400;
+  line-height: 1.2;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+
+.tile-tag {
+  flex: none;
+  display: flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 10px 1px;
+  border: 1px solid var(--black);
+  border-radius: 20px;
+  font-size: 0.8rem;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+}
+
+.tile-line {
+  margin: 8px 0 0;
+  font-size: 0.95rem;
+  line-height: 1.4;
+  opacity: 0.8;
+  overflow-wrap: anywhere;
+}
+
+.tile-link {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 0.95rem;
+  color: var(--black);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.tile-link:hover {
+  background: var(--bolt);
+}
+
+/* editing tools only exist once unlocked */
+
+.tile-tools {
+  display: none;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.is-editing .tile-tools {
+  display: flex;
+}
+
+.tile-tools button {
+  height: 28px;
+  padding: 0 10px 1px;
+  border: 1px solid rgba(34, 34, 36, 0.5);
+  border-radius: 14px;
+  background: transparent;
+  color: var(--black);
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.tile-tools button:hover {
+  background: rgba(34, 34, 36, 0.08);
+}
+
+.tile-tools button[data-action="delete"]:hover {
+  background: #f3d3cb;
+  border-color: #b0432e;
+}
+
+.is-editing .tile[draggable="true"] .tile-media {
+  cursor: grab;
+}
+
+.tile.is-dragging {
+  opacity: 0.35;
+}
+
+/* ---- dialogs ------------------------------------------------------ */
+
+.lately-dialog {
+  width: min(520px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  padding: 28px;
+  border: 0;
+  border-radius: 16px;
+  background: var(--light);
+  color: var(--black);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+  overflow-y: auto;
+}
+
+.lately-dialog--wide {
+  width: min(760px, calc(100vw - 32px));
+}
+
+.lately-dialog::backdrop {
+  background: rgba(34, 34, 36, 0.62);
+}
+
+.lately-dialog h2 {
+  margin: 0 0 20px;
+  font-family: "Gt Pressura Mono", sans-serif;
+  font-size: 1.5rem;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.lately-field {
+  display: block;
+  margin-bottom: 16px;
+}
+
+.lately-field > span {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 0.8rem;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  opacity: 0.65;
+}
+
+.lately-field input,
+.lately-field select {
+  width: 100%;
+  padding: 8px 2px;
+  border: 0;
+  border-bottom: 2px solid rgba(34, 34, 36, 0.25);
+  border-radius: 0;
+  background: transparent;
+  color: var(--black);
+  font: inherit;
+  font-size: 1rem;
+  outline: none;
+}
+
+.lately-field input:focus,
+.lately-field select:focus {
+  border-bottom-color: var(--black);
+}
+
+.lately-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.lately-error {
+  min-height: 1.2em;
+  margin: 8px 0 0;
+  color: #b0432e;
+  font-size: 0.9rem;
+}
+
+.lately-drop {
+  display: grid;
+  gap: 6px;
+  padding: 28px 20px;
+  border: 2px dashed rgba(34, 34, 36, 0.4);
+  border-radius: 12px;
+  text-align: center;
+  cursor: pointer;
+}
+
+.lately-drop span {
+  font-size: 0.9rem;
+  opacity: 0.7;
+}
+
+.lately-drop input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.lately-drop:focus-within,
+.lately-drop.is-over {
+  border-color: var(--black);
+  background: rgba(207, 247, 127, 0.35);
+}
+
+.lately-drafts {
+  display: grid;
+  gap: 18px;
+  margin-top: 20px;
+}
+
+.draft {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  gap: 16px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(34, 34, 36, 0.15);
+}
+
+.draft-thumb {
+  width: 96px;
+  height: 96px;
+  object-fit: cover;
+  background: #e8e5da;
+}
+
+.draft-note {
+  margin: 0 0 8px;
+  font-size: 0.85rem;
+  opacity: 0.7;
+}
+
+.draft-note[data-kind="error"] {
+  color: #b0432e;
+  opacity: 1;
+}
+
+.draft .lately-field {
+  margin-bottom: 10px;
+}
+
+.draft-remove {
+  justify-self: start;
+}
+
+/* ---- small screens ------------------------------------------------ */
+
+@media (max-width: 540px) {
+  .lately-grid {
+    gap: 0;
+  }
+
+  .lately-col {
+    gap: 40px;
+  }
+
+  .lately-dialog {
+    padding: 20px;
+  }
+
+  .draft {
+    grid-template-columns: 64px 1fr;
+    gap: 12px;
+  }
+
+  .draft-thumb {
+    width: 64px;
+    height: 64px;
+  }
+}
